@@ -1,185 +1,192 @@
-import React, { useState, useRef } from 'react';
-import { Stage, Layer, Rect, Circle, Transformer } from 'react-konva';
+import React, { useState, useRef, useEffect } from 'react';
+import { Stage, Layer, Rect, Circle, Text, Transformer } from 'react-konva';
+// 💡 방금 만든 Sidebar 컴포넌트를 가져옵니다.
+import Sidebar from './Sidebar';
 
 const Canvas = () => {
-  // 1. 캔버스 위에 올라간 모든 도형(오브젝트)들을 관리하는 배열 상태
-  // 미리캔버스의 '레이어 리스트' 데이터 구조와 동일합니다.
   const [rectangles, setRectangles] = useState([]);
   const [circles, setCircles] = useState([]);
-
-  // 2. 현재 사용자가 마우스로 클릭해 선택한 오브젝트의 ID와 타입 관리
+  // --- 💡 텍스트 레이어들을 관리할 배열 상태 추가 ---
+  const [texts, setTexts] = useState([]);
   const [selectedElement, setSelectedElement] = useState({ id: null, type: null });
 
-  // 3. 크기 조절 프레임(Transformer) 제어를 위한 Ref
+  const stageRef = useRef(null);
   const transformerRef = useRef(null);
 
-  // 4. [기능] 새로운 사각형 추가 함수
+  // 현재 선택된 오브젝트 객체 반환 구조 확장
+  const getSelectedObject = () => {
+    if (selectedElement.type === 'rect') return rectangles.find(r => r.id === selectedElement.id);
+    if (selectedElement.type === 'circle') return circles.find(c => c.id === selectedElement.id);
+    if (selectedElement.type === 'text') return texts.find(t => t.id === selectedElement.id);
+    return null;
+  };
+  const currentSelectedObj = getSelectedObject();
+
+  // [기능] 레이어 추가 함수들
   const addRectangle = () => {
     const newRect = {
-      // 고유 ID를 생성하여 리액트 key값 및 선택 상태 추적에 활용합니다.
-      id: `rect_${Date.now()}`,
-      // 캔버스 중앙 근처에 자연스럽게 배치되도록 기본 좌표 설정
-      x: 150 + (rectangles.length * 10), 
-      y: 150 + (rectangles.length * 10),
-      width: 100,
-      height: 100,
-      fill: '#3b82f6', // Tailwind의 blue-500
+      id: `rect_${Date.now()}`, x: 150, y: 150, width: 100, height: 100, fill: '#3b82f6', opacity: 1,
     };
     setRectangles([...rectangles, newRect]);
   };
 
-  // 5. [기능] 새로운 원 추가 함수
   const addCircle = () => {
     const newCircle = {
-      id: `circle_${Date.now()}`,
-      x: 300 + (circles.length * 10),
-      y: 200 + (circles.length * 10),
-      radius: 50, // 원은 width/height 대신 반지름(radius)을 사용합니다.
-      fill: '#ef4444', // Tailwind의 red-500
+      id: `circle_${Date.now()}`, x: 300, y: 200, radius: 50, fill: '#ef4444', opacity: 1,
     };
     setCircles([...circles, newCircle]);
   };
 
-  // 6. [UX] 캔버스 빈 도화지 영역 클릭 시 선택 해제 처리
+  // --- 💡 [기능] 텍스트 추가 함수 ---
+  const addText = (defaultText, size, isBold) => {
+    const newText = {
+      id: `text_${Date.now()}`,
+      x: 200,
+      y: 250,
+      text: defaultText,
+      fontSize: size,
+      fontStyle: isBold ? 'bold' : 'normal',
+      fill: '#1f2937',
+      opacity: 1,
+    };
+    setTexts([...texts, newText]);
+  };
+
+  // 속성 제어 함수들 (색상, 투명도)
+  const changeColor = (newColor) => {
+    if (selectedElement.type === 'rect') setRectangles(rectangles.map(r => r.id === selectedElement.id ? { ...r, fill: newColor } : r));
+    if (selectedElement.type === 'circle') setCircles(circles.map(c => c.id === selectedElement.id ? { ...c, fill: newColor } : c));
+    if (selectedElement.type === 'text') setTexts(texts.map(t => t.id === selectedElement.id ? { ...t, fill: newColor } : t));
+  };
+
+  const changeOpacity = (newOpacity) => {
+    const opacityVal = parseFloat(newOpacity);
+    if (selectedElement.type === 'rect') setRectangles(rectangles.map(r => r.id === selectedElement.id ? { ...r, opacity: opacityVal } : r));
+    if (selectedElement.type === 'circle') setCircles(circles.map(c => c.id === selectedElement.id ? { ...c, opacity: opacityVal } : c));
+    if (selectedElement.type === 'text') setTexts(texts.map(t => t.id === selectedElement.id ? { ...t, opacity: opacityVal } : t));
+  };
+
+  // 레이어 삭제 함수
+  const deleteSelected = () => {
+    if (!selectedElement.id) return;
+    if (selectedElement.type === 'rect') setRectangles(rectangles.filter(r => r.id !== selectedElement.id));
+    if (selectedElement.type === 'circle') setCircles(circles.filter(c => c.id !== selectedElement.id));
+    if (selectedElement.type === 'text') setTexts(texts.filter(t => t.id !== selectedElement.id));
+    setSelectedElement({ id: null, type: null });
+    transformerRef.current.nodes([]);
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedElement, rectangles, circles, texts]);
+
+  const handleDownload = () => {
+    transformerRef.current.nodes([]);
+    const dataUrl = stageRef.current.toDataURL();
+    const link = document.createElement('a');
+    link.download = 'miricanvas-export.png';
+    link.href = dataUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const checkDeselect = (e) => {
-    const clickedOnEmpty = e.target === e.target.getStage();
-    if (clickedOnEmpty) {
+    if (e.target === e.target.getStage()) {
       setSelectedElement({ id: null, type: null });
-      transformerRef.current.nodes([]); // Transformer 타겟 초기화
+      transformerRef.current.nodes([]);
     }
   };
 
-  // 7. [UX] 특정 도형을 클릭했을 때 선택 및 Transformer 연결 함수
   const handleSelect = (e, id, type) => {
     setSelectedElement({ id, type });
-    const node = e.target;
-    transformerRef.current.nodes([node]); // 클릭된 노드에 크기 조절러 부착
-    transformerRef.current.getLayer().batchDraw(); // 캔버스 즉시 재실행
+    transformerRef.current.nodes([e.target]);
   };
 
-  // 8. [데이터 갱신] 드래그나 크기 조절이 끝났을 때 최신 좌표/크기를 배열 상태에 저장
+  // 드래그 및 크기 조절 데이터 업데이트 구조 (텍스트 스케일 예외처리 추가)
   const handleTransformOrDragEnd = (id, type, targetNode) => {
     if (type === 'rect') {
-      const updatedRects = rectangles.map((rect) => {
-        if (rect.id === id) {
-          const scaleX = targetNode.scaleX();
-          const scaleY = targetNode.scaleY();
-          // 스케일 변화율을 실제 크기에 반영한 후 스케일 속성은 1로 초기화합니다.
-          targetNode.scaleX(1);
-          targetNode.scaleY(1);
-
-          return {
-            ...rect,
-            x: targetNode.x(),
-            y: targetNode.y(),
-            width: Math.max(10, targetNode.width() * scaleX),
-            height: Math.max(10, targetNode.height() * scaleY),
-          };
-        }
-        return rect;
-      });
-      setRectangles(updatedRects);
+      setRectangles(rectangles.map(r => r.id === id ? {
+        ...r, x: targetNode.x(), y: targetNode.y(),
+        width: Math.max(10, targetNode.width() * targetNode.scaleX()),
+        height: Math.max(10, targetNode.height() * targetNode.scaleY())
+      } : r));
     } else if (type === 'circle') {
-      const updatedCircles = circles.map((circle) => {
-        if (circle.id === id) {
-          const scaleX = targetNode.scaleX();
-          targetNode.scaleX(1);
-          targetNode.scaleY(1);
-
-          return {
-            ...circle,
-            x: targetNode.x(),
-            y: targetNode.y(),
-            // 원은 가로 스케일 비율을 반지름에 곱해 크기를 변경합니다.
-            radius: Math.max(5, circle.radius * scaleX),
-          };
-        }
-        return circle;
-      });
-      setCircles(updatedCircles);
+      setCircles(circles.map(c => c.id === id ? {
+        ...c, x: targetNode.x(), y: targetNode.y(),
+        radius: Math.max(5, c.radius * targetNode.scaleX())
+      } : c));
+    } else if (type === 'text') {
+      // 💡 텍스트는 테두리를 늘릴 때 글자 크기(fontSize) 자체가 커지도록 배율 계산을 적용합니다.
+      setTexts(texts.map(t => t.id === id ? {
+        ...t, x: targetNode.x(), y: targetNode.y(),
+        fontSize: Math.max(8, targetNode.fontSize() * targetNode.scaleX())
+      } : t));
     }
+    targetNode.scaleX(1); targetNode.scaleY(1);
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f3f4f6' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#f3f4f6', fontFamily: 'sans-serif' }}>
       
-      {/* SIDEBAR: 미리캔버스의 왼쪽 리소스 메뉴 영역 */}
-      <div style={{
-        width: '240px',
-        backgroundColor: '#ffffff',
-        padding: '20px',
-        boxShadow: '2px 0 5px rgba(0,0,0,0.05)',
-        display: 'flex',
-        flexDirection: 'col',
-        gap: '12px',
-        zIndex: 10
-      }}>
-        <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', fontWeight: 'bold' }}>컴포넌트 추가</h3>
-        <button onClick={addRectangle} style={buttonStyle}>■ 사각형 추가</button>
-        <button onClick={addCircle} style={buttonStyle}>● 원 추가</button>
+      {/* TOP TOOLBAR */}
+      <div style={{ height: '60px', backgroundColor: '#ffffff', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', zIndex: 11 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <span style={{ fontWeight: 'bold', color: '#1f2937' }}>MiriCanvas Studio</span>
+          {currentSelectedObj ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label style={{ fontSize: '13px', color: '#4b5563' }}>색상:</label>
+                <input type="color" value={currentSelectedObj.fill} onChange={(e) => changeColor(e.target.value)} style={{ cursor: 'pointer', width: '35px', height: '28px', border: '1px solid #ccc', borderRadius: '4px' }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label style={{ fontSize: '13px', color: '#4b5563' }}>투명도:</label>
+                <input type="range" min="0" max="1" step="0.1" value={currentSelectedObj.opacity ?? 1} onChange={(e) => changeOpacity(e.target.value)} style={{ cursor: 'pointer' }} />
+              </div>
+              <button onClick={deleteSelected} style={{ padding: '6px 12px', backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}>선택 삭제</button>
+            </div>
+          ) : (
+            <span style={{ fontSize: '13px', color: '#9ca3af' }}>도형이나 텍스트를 선택하면 편집 메뉴가 활성화됩니다.</span>
+          )}
+        </div>
+        <button onClick={handleDownload} style={{ padding: '8px 16px', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>📥 이미지 다운로드</button>
       </div>
 
-      {/* CANVAS AREA: 중앙 편집 공간 */}
-      <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        <Stage
-          width={700}
-          height={600}
-          style={{ backgroundColor: '#ffffff', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-          onMouseDown={checkDeselect}
-          onTouchStart={checkDeselect}
-        >
-          <Layer>
-            {/* 1. 생성된 모든 사각형들 렌더링 */}
-            {rectangles.map((rect) => (
-              <Rect
-                key={rect.id}
-                {...rect}
-                draggable
-                onClick={(e) => handleSelect(e, rect.id, 'rect')}
-                onDragEnd={(e) => handleTransformOrDragEnd(rect.id, 'rect', e.target)}
-                onTransformEnd={(e) => handleTransformOrDragEnd(rect.id, 'rect', e.target)}
-              />
-            ))}
+      <div style={{ display: 'flex', flex: 1 }}>
+        {/* 💡 개별 파일로 분리한 Sidebar를 장착하고 함수들을 패스해 줍니다 */}
+        <Sidebar addRectangle={addRectangle} addCircle={addCircle} addText={addText} />
 
-            {/* 2. 생성된 모든 원들 렌더링 */}
-            {circles.map((circle) => (
-              <Circle
-                key={circle.id}
-                {...circle}
-                draggable
-                onClick={(e) => handleSelect(e, circle.id, 'circle')}
-                onDragEnd={(e) => handleTransformOrDragEnd(circle.id, 'circle', e.target)}
-                onTransformEnd={(e) => handleTransformOrDragEnd(circle.id, 'circle', e.target)}
-              />
-            ))}
-
-            {/* 3. 선택된 오브젝트에 크기 조절 가이드를 띄워주는 공용 Transformer */}
-            <Transformer
-              ref={transformerRef}
-              boundBoxFunc={(oldBox, newBox) => {
-                // 도형이 너무 작아져서 완전히 사라지는 버그 방지 예외처리
-                if (newBox.width < 15 || newBox.height < 15) return oldBox;
-                return newBox;
-              }}
-            />
-          </Layer>
-        </Stage>
+        {/* CANVAS WORKSPACE */}
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'auto' }}>
+          <Stage
+            width={800} height={600}
+            ref={stageRef}
+            style={{ backgroundColor: '#ffffff', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}
+            onMouseDown={checkDeselect}
+            onTouchStart={checkDeselect}
+          >
+            <Layer>
+              {rectangles.map((rect) => (
+                <Rect key={rect.id} id={rect.id} {...rect} draggable onClick={(e) => handleSelect(e, rect.id, 'rect')} onDragEnd={(e) => handleTransformOrDragEnd(rect.id, 'rect', e.target)} onTransformEnd={(e) => handleTransformOrDragEnd(rect.id, 'rect', e.target)} />
+              ))}
+              {circles.map((circle) => (
+                <Circle key={circle.id} id={circle.id} {...circle} draggable onClick={(e) => handleSelect(e, circle.id, 'circle')} onDragEnd={(e) => handleTransformOrDragEnd(circle.id, 'circle', e.target)} onTransformEnd={(e) => handleTransformOrDragEnd(circle.id, 'circle', e.target)} />
+              ))}
+              {/* 💡 텍스트 레이어 순회 렌더링 추가 */}
+              {texts.map((t) => (
+                <Text key={t.id} id={t.id} {...t} draggable onClick={(e) => handleSelect(e, t.id, 'text')} onDragEnd={(e) => handleTransformOrDragEnd(t.id, 'text', e.target)} onTransformEnd={(e) => handleTransformOrDragEnd(t.id, 'text', e.target)} />
+              ))}
+              <Transformer ref={transformerRef} boundBoxFunc={(oldBox, newBox) => (newBox.width < 15 || newBox.height < 15) ? oldBox : newBox} />
+            </Layer>
+          </Stage>
+        </div>
       </div>
-
     </div>
   );
-};
-
-// 버튼 기본 스타일링
-const buttonStyle = {
-  padding: '12px',
-  backgroundColor: '#3b82f6',
-  color: '#ffffff',
-  border: 'none',
-  borderRadius: '6px',
-  cursor: 'pointer',
-  fontWeight: 'bold',
-  textAlign: 'left',
 };
 
 export default Canvas;
