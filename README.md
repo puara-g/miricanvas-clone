@@ -26,7 +26,7 @@
 
 ## 🔗 배포 주소
 
-* **GitHub Repository:** [https://github.com/puara-g/miricanvas-new](https://github.com/puara-g/miricanvas-new)
+* **GitHub Repository:** [[https://github.com/puara-g/miricanvas-new](https://github.com/puara-g/miricanvas-new)](https://github.com/puara-g/miricanvas-clone/tree/main)
 * **Live Demo (배포 주소):** *[https://miricanvas-studio.vercel.app ](https://miricanvas-clone-pearl.vercel.app/)*
 
 ---
