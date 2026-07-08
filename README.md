@@ -6,16 +6,6 @@
 
 <br>
 
-## 🖼️ 프로젝트 로고 및 캡처
-
-| 캔버스 메인 편집 화면 |
-| :---: |
-| ![MiriCanvas Studio](https://raw.githubusercontent.com/puara-g/miricanvas-new/main/public/vite.svg) |
-
-> *실제 프로젝트 실행 화면 및 로고 이미지를 첨부할 수 있습니다.*
-
-<br>
-
 ## 📝 프로젝트 소개
 
 `MiriCanvas Studio`는 웹 포인터 조작만으로 사각형, 원, 텍스트, 사용자 이미지 레이어를 동적으로 생성하고 자유롭게 조작(드래그, 리사이징, 투명도/색상 변경)할 수 있는 **웹 기반 그래픽 에디터 프로젝트**입니다. 
